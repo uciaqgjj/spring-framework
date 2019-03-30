@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -33,7 +33,7 @@ import org.springframework.core.ResolvableType;
 import org.springframework.core.codec.StringDecoder;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
-import org.springframework.core.io.buffer.AbstractDataBufferAllocatingTestCase;
+import org.springframework.core.io.buffer.AbstractLeakCheckingTestCase;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.core.io.buffer.DefaultDataBufferFactory;
@@ -51,7 +51,7 @@ import static org.junit.Assert.*;
  * @author Sebastien Deleuze
  * @author Rossen Stoyanchev
  */
-public class MultipartHttpMessageWriterTests extends AbstractDataBufferAllocatingTestCase {
+public class MultipartHttpMessageWriterTests extends AbstractLeakCheckingTestCase {
 
 	private final MultipartHttpMessageWriter writer =
 			new MultipartHttpMessageWriter(ClientCodecConfigurer.create().getWriters());
@@ -197,8 +197,11 @@ public class MultipartHttpMessageWriterTests extends AbstractDataBufferAllocatin
 
 		Mono<MultiValueMap<String, HttpEntity<?>>> result = Mono.just(bodyBuilder.build());
 
-		Map<String, Object> hints = Collections.emptyMap();
-		this.writer.write(result, null, MediaType.MULTIPART_FORM_DATA, this.response, hints).block();
+		this.writer.write(result, null, MediaType.MULTIPART_FORM_DATA, this.response, Collections.emptyMap())
+				.block(Duration.ofSeconds(5));
+
+		// Make sure body is consumed to avoid leak reports
+		this.response.getBodyAsString().block(Duration.ofSeconds(5));
 	}
 
 	@Test // SPR-16376

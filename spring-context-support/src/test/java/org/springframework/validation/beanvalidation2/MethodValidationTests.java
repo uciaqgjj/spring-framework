@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -49,15 +49,17 @@ import static org.junit.Assert.*;
 public class MethodValidationTests {
 
 	@Test
+	@SuppressWarnings("unchecked")
 	public void testMethodValidationInterceptor() {
 		MyValidBean bean = new MyValidBean();
 		ProxyFactory proxyFactory = new ProxyFactory(bean);
 		proxyFactory.addAdvice(new MethodValidationInterceptor());
 		proxyFactory.addAdvisor(new AsyncAnnotationAdvisor());
-		doTestProxyValidation((MyValidInterface) proxyFactory.getProxy());
+		doTestProxyValidation((MyValidInterface<String>) proxyFactory.getProxy());
 	}
 
 	@Test
+	@SuppressWarnings("unchecked")
 	public void testMethodValidationPostProcessor() {
 		StaticApplicationContext ac = new StaticApplicationContext();
 		ac.registerSingleton("mvpp", MethodValidationPostProcessor.class);
@@ -70,7 +72,7 @@ public class MethodValidationTests {
 		ac.close();
 	}
 
-	private void doTestProxyValidation(MyValidInterface proxy) {
+	private void doTestProxyValidation(MyValidInterface<String> proxy) {
 		assertNotNull(proxy.myValidMethod("value", 5));
 		try {
 			assertNotNull(proxy.myValidMethod("value", 15));
@@ -122,6 +124,7 @@ public class MethodValidationTests {
 
 	@Test
 	public void testLazyValidatorForMethodValidation() {
+		@SuppressWarnings("resource")
 		AnnotationConfigApplicationContext ctx = new AnnotationConfigApplicationContext(
 				LazyMethodValidationConfig.class, CustomValidatorBean.class,
 				MyValidBean.class, MyValidFactoryBean.class);
@@ -130,6 +133,7 @@ public class MethodValidationTests {
 
 	@Test
 	public void testLazyValidatorForMethodValidationWithProxyTargetClass() {
+		@SuppressWarnings("resource")
 		AnnotationConfigApplicationContext ctx = new AnnotationConfigApplicationContext(
 				LazyMethodValidationConfigWithProxyTargetClass.class, CustomValidatorBean.class,
 				MyValidBean.class, MyValidFactoryBean.class);

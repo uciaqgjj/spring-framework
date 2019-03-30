@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -121,23 +121,27 @@ public abstract class AbstractJackson2Encoder extends Jackson2CodecSupport imple
 			return Mono.from(inputStream).map(value ->
 					encodeValue(value, mimeType, bufferFactory, elementType, hints, encoding)).flux();
 		}
-
-		for (MediaType streamingMediaType : this.streamingMediaTypes) {
-			if (streamingMediaType.isCompatibleWith(mimeType)) {
-				byte[] separator = STREAM_SEPARATORS.getOrDefault(streamingMediaType, NEWLINE_SEPARATOR);
-				return Flux.from(inputStream).map(value -> {
-					DataBuffer buffer = encodeValue(value, mimeType, bufferFactory, elementType, hints, encoding);
-					if (separator != null) {
-						buffer.write(separator);
-					}
-					return buffer;
-				});
-			}
+		else {
+			return this.streamingMediaTypes.stream()
+					.filter(mediaType -> mediaType.isCompatibleWith(mimeType))
+					.findFirst()
+					.map(mediaType -> {
+						byte[] separator = STREAM_SEPARATORS.getOrDefault(mediaType, NEWLINE_SEPARATOR);
+						return Flux.from(inputStream).map(value -> {
+							DataBuffer buffer = encodeValue(
+									value, mimeType, bufferFactory, elementType, hints, encoding);
+							if (separator != null) {
+								buffer.write(separator);
+							}
+							return buffer;
+						});
+					})
+					.orElseGet(() -> {
+						ResolvableType listType = ResolvableType.forClassWithGenerics(List.class, elementType);
+						return Flux.from(inputStream).collectList().map(list ->
+								encodeValue(list, mimeType, bufferFactory, listType, hints, encoding)).flux();
+					});
 		}
-
-		ResolvableType listType = ResolvableType.forClassWithGenerics(List.class, elementType);
-		return Flux.from(inputStream).collectList().map(list ->
-				encodeValue(list, mimeType, bufferFactory, listType, hints, encoding)).flux();
 	}
 
 	private DataBuffer encodeValue(Object value, @Nullable MimeType mimeType, DataBufferFactory bufferFactory,
@@ -166,8 +170,7 @@ public abstract class AbstractJackson2Encoder extends Jackson2CodecSupport imple
 		OutputStream outputStream = buffer.asOutputStream();
 
 		try {
-			JsonGenerator generator =
-					getObjectMapper().getFactory().createGenerator(outputStream, encoding);
+			JsonGenerator generator = getObjectMapper().getFactory().createGenerator(outputStream, encoding);
 			writer.writeValue(generator, value);
 			release = false;
 		}

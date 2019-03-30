@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -26,6 +26,7 @@ import javax.servlet.http.HttpServletRequest;
 
 import org.springframework.http.MediaType;
 import org.springframework.lang.Nullable;
+import org.springframework.util.StringUtils;
 import org.springframework.web.HttpMediaTypeException;
 import org.springframework.web.HttpMediaTypeNotAcceptableException;
 import org.springframework.web.accept.ContentNegotiationManager;
@@ -46,8 +47,6 @@ import org.springframework.web.servlet.mvc.condition.HeadersRequestCondition.Hea
  * @since 3.1
  */
 public final class ProducesRequestCondition extends AbstractRequestCondition<ProducesRequestCondition> {
-
-	private static final ProducesRequestCondition PRE_FLIGHT_MATCH = new ProducesRequestCondition();
 
 	private static final ProducesRequestCondition EMPTY_CONDITION = new ProducesRequestCondition();
 
@@ -187,11 +186,8 @@ public final class ProducesRequestCondition extends AbstractRequestCondition<Pro
 	@Override
 	@Nullable
 	public ProducesRequestCondition getMatchingCondition(HttpServletRequest request) {
-		if (CorsUtils.isPreFlightRequest(request)) {
-			return PRE_FLIGHT_MATCH;
-		}
-		if (isEmpty()) {
-			return this;
+		if (isEmpty() || CorsUtils.isPreFlightRequest(request)) {
+			return EMPTY_CONDITION;
 		}
 
 		List<MediaType> acceptedMediaTypes;
@@ -207,7 +203,7 @@ public final class ProducesRequestCondition extends AbstractRequestCondition<Pro
 		if (!result.isEmpty()) {
 			return new ProducesRequestCondition(result, this.contentNegotiationManager);
 		}
-		else if (acceptedMediaTypes.contains(MediaType.ALL)) {
+		else if (MediaType.ALL.isPresentIn(acceptedMediaTypes)) {
 			return EMPTY_CONDITION;
 		}
 		else {
@@ -322,16 +318,27 @@ public final class ProducesRequestCondition extends AbstractRequestCondition<Pro
 
 		public final boolean match(List<MediaType> acceptedMediaTypes) {
 			boolean match = matchMediaType(acceptedMediaTypes);
-			return (!isNegated() ? match : !match);
+			return !isNegated() == match;
 		}
 
 		private boolean matchMediaType(List<MediaType> acceptedMediaTypes) {
 			for (MediaType acceptedMediaType : acceptedMediaTypes) {
-				if (getMediaType().isCompatibleWith(acceptedMediaType)) {
+				if (getMediaType().isCompatibleWith(acceptedMediaType) && matchParameters(acceptedMediaType)) {
 					return true;
 				}
 			}
 			return false;
+		}
+
+		private boolean matchParameters(MediaType acceptedMediaType) {
+			for (String name : getMediaType().getParameters().keySet()) {
+				String s1 = getMediaType().getParameter(name);
+				String s2 = acceptedMediaType.getParameter(name);
+				if (StringUtils.hasText(s1) && StringUtils.hasText(s2) && !s1.equalsIgnoreCase(s2)) {
+					return false;
+				}
+			}
+			return true;
 		}
 	}
 
